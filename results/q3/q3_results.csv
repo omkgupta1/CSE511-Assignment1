@@ -1,0 +1,3 @@
+cpu,roi_instructions,roi_ticks,l2_miss_rate,l3_miss_rate
+timing,35215518,117233377000,0.330999,0.370705
+o3,35215518,26660876000,0.330883,0.371461
