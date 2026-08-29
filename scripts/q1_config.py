@@ -20,6 +20,32 @@ parser.add_argument(
     help="Path to RISC-V benchmark",
 )
 
+parser.add_argument(
+    "--l2-size",
+    default="512KiB",
+    help="L2 cache size",
+)
+
+parser.add_argument(
+    "--l2-assoc",
+    type=int,
+    default=4,
+    help="L2 cache associativity",
+)
+
+parser.add_argument(
+    "--l3-size",
+    default="1MiB",
+    help="L3 cache size",
+)
+
+parser.add_argument(
+    "--l3-assoc",
+    type=int,
+    default=8,
+    help="L3 cache associativity",
+)
+
 args = parser.parse_args()
 
 
@@ -94,9 +120,8 @@ system.cpu.dcache.mem_side = system.l2bus.cpu_side_ports
 # -----------------------------
 system.l2cache = Cache()
 
-system.l2cache.size = "512KiB"
-system.l2cache.assoc = 4
-
+system.l2cache.size = args.l2_size
+system.l2cache.assoc = args.l2_assoc
 system.l2cache.tag_latency = 10
 system.l2cache.data_latency = 10
 system.l2cache.response_latency = 10
@@ -121,8 +146,8 @@ system.l2cache.mem_side = system.l3bus.cpu_side_ports
 # -----------------------------
 system.l3cache = Cache()
 
-system.l3cache.size = "1MiB"
-system.l3cache.assoc = 8
+system.l3cache.size = args.l3_size
+system.l3cache.assoc = args.l3_assoc
 
 system.l3cache.tag_latency = 20
 system.l3cache.data_latency = 20
