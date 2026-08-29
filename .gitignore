@@ -1,0 +1,12 @@
+.DS_Store
+
+# gem5 generated output
+m5out/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Temporary/editor files
+*.swp
+*.swo
