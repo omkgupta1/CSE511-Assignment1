@@ -1,8 +1,6 @@
 import csv
-import os
 import re
 import subprocess
-import argparse
 from pathlib import Path
 
 
@@ -20,15 +18,22 @@ RESULTS_DIR = ASSIGNMENT_DIR / "results/q2"
 # Cache configurations from the assignment
 # --------------------------------------------------
 
+# L2 configurations:
+# size_associativity
 L2_CONFIGS = [
+    ("32K_4", "32KiB", 4),
     ("64K_2", "64KiB", 2),
     ("64K_4", "64KiB", 4),
+    ("64K_8", "64KiB", 8),
     ("256K_2", "256KiB", 2),
     ("256K_4", "256KiB", 4),
-    ("1024K_8", "1024KiB", 8),
     ("1024K_2", "1024KiB", 2),
+    ("1024K_8", "1024KiB", 8),
 ]
 
+
+# L3 configurations:
+# size_associativity
 L3_CONFIGS = [
     ("1M_8", "1MiB", 8),
     ("1M_16", "1MiB", 16),
@@ -49,6 +54,7 @@ def extract_stat(stats_file, stat_name):
     with open(stats_file, "r") as f:
         for line in f:
             match = pattern.match(line.strip())
+
             if match:
                 return float(match.group(1))
 
@@ -61,7 +67,9 @@ def collect_results(output_dir):
     stats_file = output_dir / "stats.txt"
 
     if not stats_file.exists():
-        raise RuntimeError(f"Missing stats.txt: {stats_file}")
+        raise RuntimeError(
+            f"Missing stats.txt: {stats_file}"
+        )
 
     l2_miss_rate = extract_stat(
         stats_file,
@@ -78,7 +86,11 @@ def collect_results(output_dir):
         "simTicks",
     )
 
-    return l2_miss_rate, l3_miss_rate, int(sim_ticks)
+    return (
+        l2_miss_rate,
+        l3_miss_rate,
+        int(sim_ticks),
+    )
 
 
 # --------------------------------------------------
@@ -94,6 +106,7 @@ def run_simulation(
     l3_size,
     l3_assoc,
 ):
+
     output_dir = (
         RESULTS_DIR
         / sweep
@@ -101,15 +114,18 @@ def run_simulation(
         / cpu
     )
 
-    output_dir.mkdir(parents=True, exist_ok=True)
+    output_dir.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
 
     print("\n" + "=" * 70)
-    print(f"Sweep       : {sweep}")
+    print(f"Sweep        : {sweep}")
     print(f"Configuration: {config_name}")
-    print(f"CPU         : {cpu}")
-    print(f"L2          : {l2_size}, {l2_assoc}-way")
-    print(f"L3          : {l3_size}, {l3_assoc}-way")
-    print(f"Output      : {output_dir}")
+    print(f"CPU          : {cpu}")
+    print(f"L2           : {l2_size}, {l2_assoc}-way")
+    print(f"L3           : {l3_size}, {l3_assoc}-way")
+    print(f"Output       : {output_dir}")
     print("=" * 70)
 
     cmd = [
@@ -117,14 +133,19 @@ def run_simulation(
         "-d",
         str(output_dir),
         str(CONFIG),
+
         "--cpu",
         cpu,
+
         "--l2-size",
         l2_size,
+
         "--l2-assoc",
         str(l2_assoc),
+
         "--l3-size",
         l3_size,
+
         "--l3-assoc",
         str(l3_assoc),
     ]
@@ -133,10 +154,13 @@ def run_simulation(
 
     if result.returncode != 0:
         raise RuntimeError(
-            f"gem5 failed for {sweep}/{config_name}/{cpu}"
+            f"gem5 failed for "
+            f"{sweep}/{config_name}/{cpu}"
         )
 
-    l2_mr, l3_mr, sim_ticks = collect_results(output_dir)
+    l2_mr, l3_mr, sim_ticks = collect_results(
+        output_dir
+    )
 
     print(f"L2 miss rate : {l2_mr:.6f}")
     print(f"L3 miss rate : {l3_mr:.6f}")
@@ -155,76 +179,71 @@ def run_simulation(
         "sim_ticks": sim_ticks,
     }
 
-parser = argparse.ArgumentParser()
-parser.add_argument(
-    "--test",
-    action="store_true",
-    help="Run only the first L2 configuration with TimingSimpleCPU",
-)
 
-args = parser.parse_args()
 # --------------------------------------------------
 # Main
 # --------------------------------------------------
+
 def main():
-    RESULTS_DIR.mkdir(parents=True, exist_ok=True)
+
+    RESULTS_DIR.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
 
     results = []
 
-    if args.test:
-        results.append(
-            run_simulation(
-                "l2",
-                "64K_2",
-                "timing",
-                "64KiB",
-                2,
-                "1MiB",
-                8,
+    # --------------------------------------------------
+    # L2 sweep
+    #
+    # L3 fixed at Q1 configuration:
+    # 1 MiB, 8-way
+    # --------------------------------------------------
+
+    for name, size, assoc in L2_CONFIGS:
+
+        for cpu in ["timing", "o3"]:
+
+            results.append(
+                run_simulation(
+                    sweep="l2",
+                    config_name=name,
+                    cpu=cpu,
+                    l2_size=size,
+                    l2_assoc=assoc,
+                    l3_size="1MiB",
+                    l3_assoc=8,
+                )
             )
-        )
-    else:
-        # ----------------------------------------------
-        # L2 sweep
-        # L3 fixed at Q1: 1MiB, 8-way
-        # ----------------------------------------------
 
-        for name, size, assoc in L2_CONFIGS:
-            for cpu in ["timing", "o3"]:
-                results.append(
-                    run_simulation(
-                        "l2",
-                        name,
-                        cpu,
-                        size,
-                        assoc,
-                        "1MiB",
-                        8,
-                    )
+
+    # --------------------------------------------------
+    # L3 sweep
+    #
+    # L2 fixed at Q1 configuration:
+    # 512 KiB, 4-way
+    # --------------------------------------------------
+
+    for name, size, assoc in L3_CONFIGS:
+
+        for cpu in ["timing", "o3"]:
+
+            results.append(
+                run_simulation(
+                    sweep="l3",
+                    config_name=name,
+                    cpu=cpu,
+                    l2_size="512KiB",
+                    l2_assoc=4,
+                    l3_size=size,
+                    l3_assoc=assoc,
                 )
+            )
 
-        # ----------------------------------------------
-        # L3 sweep
-        # L2 fixed at Q1: 512KiB, 4-way
-        # ----------------------------------------------
 
-        for name, size, assoc in L3_CONFIGS:
-            for cpu in ["timing", "o3"]:
-                results.append(
-                    run_simulation(
-                        "l3",
-                        name,
-                        cpu,
-                        "512KiB",
-                        4,
-                        size,
-                        assoc,
-                    )
-                )
-
-    # ----------------------------------------------
+    # --------------------------------------------------
     # Write CSV
-    # ----------------------------------------------
+    # --------------------------------------------------
 
     csv_file = RESULTS_DIR / "q2_results.csv"
 
@@ -241,14 +260,28 @@ def main():
         "sim_ticks",
     ]
 
-    with open(csv_file, "w", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=fieldnames)
+    with open(
+        csv_file,
+        "w",
+        newline="",
+    ) as f:
+
+        writer = csv.DictWriter(
+            f,
+            fieldnames=fieldnames,
+        )
+
         writer.writeheader()
         writer.writerows(results)
 
+
     print("\n" + "=" * 70)
-    print(f"Completed {len(results)} simulations.")
-    print(f"Results saved to: {csv_file}")
+    print(
+        f"Completed {len(results)} simulations."
+    )
+    print(
+        f"Results saved to: {csv_file}"
+    )
     print("=" * 70)
 
 

@@ -10,3 +10,7 @@ __pycache__/
 *.swp
 *.swo
 .DS_Store
+
+# gem5 temporary ROI output
+m5out_roi/
+m5out_roi_o3/
